@@ -87,7 +87,6 @@ func main() {
 		dfile.Close()
 
 		// Run Docker
-		// fmt.Println("docker build -t vs-" + strings.ToLower(ver) + " ./.dockvs-build")
 		cmd := exec.Command("docker", "build", "-t", "vs-"+strings.ToLower(ver), "./.dockvs-build")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -110,12 +109,8 @@ func main() {
 		}
 
 		ver, port := "", "42420"
-		if len(os.Args) < 5 {
-			sfile, err := ioutil.ReadFile("./" + id + "/.dockvs")
-			if err != nil && !os.IsExist(err) {
-				fmt.Println(err)
-				os.Exit(1)
-			}
+		sfile, err := ioutil.ReadFile("./" + id + "/.dockvs")
+		if err == nil && !os.IsExist(err) {
 			options := map[string]*string{
 				"version": &ver,
 				"port":    &port,
@@ -126,6 +121,18 @@ func main() {
 					*opt = value
 				}
 			})
+		}
+
+		if len(os.Args) < 4 {
+			// Use all saved settings.
+		} else if len(os.Args) < 5 {
+			ver = os.Args[3]
+
+			err = ioutil.WriteFile("./"+id+"/.dockvs", []byte("\nversion="+ver+"\nport="+port+"\n"), 0666)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
 		} else {
 			ver, port = os.Args[3], os.Args[4]
 
@@ -136,12 +143,29 @@ func main() {
 			}
 		}
 
-		// Just because it is valid doesn't mean we have an image for it, but if we don't Docker will pitch a fit.
-		// This is just a basic sanity check.
-		ok, _, _, _ := ValidateVersion(ver)
-		if !ok {
-			fmt.Println("Invalid version number.")
-			os.Exit(1)
+		switch ver {
+		case "":
+			// if no version is provided or saved, try to use the latest stable. I hope you ran the build step first!
+			fallthrough
+		case "stable":
+			ver, err = GetLatestGameVersion(true)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+		case "unstable":
+			ver, err = GetLatestGameVersion(false)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+		default:
+			// This is just a basic sanity check.
+			ok, _, _, _ := ValidateVersion(ver)
+			if !ok {
+				fmt.Println("Invalid version number.")
+				os.Exit(1)
+			}
 		}
 
 		base, err := os.Getwd()
@@ -150,10 +174,9 @@ func main() {
 			os.Exit(1)
 		}
 
-		// fmt.Println(
-		// 	"docker run -d -it --mount type=bind,source='" + base + "/" + id + "',target=/app/data -p 42420:" + port + " --name " + id + " vs-" + strings.ToLower(ver))
 		cmd := exec.Command(
-			"docker", "run", "-d", "-it", "--mount", "type=bind,source="+base+"/"+id+",target=/app/data", "-p", "42420:"+port, "--name", id, "vs-"+strings.ToLower(ver))
+			"docker", "run", "-d", "-it", "--mount", "type=bind,source="+base+"/"+id+",target=/app/data",
+			"--restart", "on-failure", "-p", port+":42420", "--name", id, "vs-"+strings.ToLower(ver))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
@@ -179,7 +202,7 @@ CMD ["mono", "./bin/VintagestoryServer.exe", "--datapath", "./data"]
 func usage() {
 	fmt.Println("Usage:")
 	fmt.Println("dockvs build [stable|unstable|<version>]")
-	fmt.Println("dockvs launch <id> [<version> <port>]")
+	fmt.Println("dockvs launch <id> [<version> [<port>]]")
 	os.Exit(2)
 }
 
