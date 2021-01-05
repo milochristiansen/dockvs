@@ -56,7 +56,7 @@ following Dockerfile to `./.dockvs-build/Dockerfile`:
 	RUN mkdir data
 
 	EXPOSE 42420
-	CMD ["mono", "./bin/VintagestoryServer.exe", "--datapath", "./data"]
+	CMD ["mono", "./bin/VintagestoryServer.exe", "--dataPath", "./data"]
 
 To build the container it uses the following command:
 

@@ -196,7 +196,7 @@ ADD server.tar.gz bin
 RUN mkdir data
 
 EXPOSE 42420
-CMD ["mono", "./bin/VintagestoryServer.exe", "--datapath", "./data"]
+CMD ["mono", "./bin/VintagestoryServer.exe", "--dataPath", "./data"]
 `
 
 func usage() {
